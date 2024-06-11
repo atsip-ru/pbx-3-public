@@ -5,7 +5,7 @@
 PATH="/sbin:/usr/sbin:/bin:/usr/bin"
 export UDP_PORT=123,5060,5080,4569,10000:20000
 export TCP_PORT=22,80
-export WAN=enp3s0
+export WAN=$(ls /sys/class/net | grep -v lo)
 LOCALNET=$(ip -o -f inet addr show | awk '/scope global/ {print $4}')
 
 # iptables configuration
