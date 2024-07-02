@@ -51,6 +51,7 @@ exec 2>>${LOG_FILE}
 CDRV_PASS="GhjcvjnhPdjyrjd"
 # DISTRIBUTION="$(lsb_release -is)"
 # Переменные
+timezone="Asia/Yekaterinburg"
 start=$(date +%s.%N)
 NAMEPBX=atsip-newpbx3
 codename=noble
@@ -364,8 +365,8 @@ function customize(){
     # подчищаем от аудиофайлов для кодека g722
     find /var/lib/asterisk/sounds/ -type f -name "*.g722" -delete
     # часовой пояс
-    timedatectl set-timezone Asia/Yekaterinburg
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = 'Asia/Yekaterinburg' WHERE keyword = 'PHPTIMEZONE';"
+    timedatectl set-timezone ${timezone}
+    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = ${timezone} WHERE keyword = 'PHPTIMEZONE';"
     # Заглушка для корня веба
     mv ${WORK_DIR}/var/www/html/index.html ${WEBROOT}
     mv ${WORK_DIR}/var/www/html/mainstyle.css ${WEBROOT}
