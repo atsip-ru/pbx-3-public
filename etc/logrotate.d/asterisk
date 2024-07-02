@@ -1,0 +1,41 @@
+/var/log/asterisk/full
+/var/log/asterisk/freepbx.log
+/var/log/asterisk/freepbx_security.log
+/var/log/asterisk/ucp_err.log
+/var/log/asterisk/ucp_out.log {
+    daily
+    ifempty
+    rotate 14
+    missingok
+    su asterisk asterisk
+    compress
+    dateext
+    copytruncate
+}
+
+/var/log/asterisk/queue_log {
+    weekly
+    ifempty
+    rotate 30
+    missingok
+    su asterisk asterisk
+    compress
+    dateext
+    copytruncate
+}
+
+/var/log/asterisk/cel_prostiezvonki_*.log {
+    daily
+    ifempty
+    rotate 30
+    missingok
+    su asterisk asterisk
+    compress
+    dateext
+    copytruncate
+    notifempty
+}
+
+/var/log/asterisk/* {
+    maxage 30
+}
