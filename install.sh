@@ -22,7 +22,6 @@
 #                                FreePBX 16                                  #
 ##############################################################################
 
-
 echo -e '\033[34m#################################################
 #\033[33m                                               \033[34m#
 #\033[33m    Установка Asterisk & FreePBX на Ubuntu     \033[34m#
@@ -31,8 +30,10 @@ echo -e '\033[34m#################################################
 #################################################\033[0m'
 
 # set -e
-SCRIPTVER="0.5.7"
+SCRIPTVER="0.6.11"
 # Changelog:
+# Найдена ошибка недоступности chan_dahdi в menuselect
+# Исправлены ошибки с CDR
 # Поправки ошибок + фаерволл + изменен webroot
 # добавил неинтерактивный режим
 # автостоп rinetd
@@ -40,8 +41,10 @@ SCRIPTVER="0.5.7"
 # Разбиение на функции
 # Вынос вывода подсказок в отдельную функцию
 # Мелкие доработки в кастомизации - правка через БД
+# Переход на 20 астер и более свежий mariadb connector + dahdi
 export DEBIAN_FRONTEND=noninteractive
 ASTVERSION=20
+FPBXVERSION=16
 PHPVERSION="7.4"
 LOG_FOLDER="/var/log"
 LOG_FILE="${LOG_FOLDER}/freepbx16-install-$(date '+%Y.%m.%d-%H.%M.%S').log"
@@ -51,10 +54,13 @@ exec 2>>${LOG_FILE}
 CDRV_PASS="GhjcvjnhPdjyrjd"
 # DISTRIBUTION="$(lsb_release -is)"
 # Переменные
+## Часовой пояс
 timezone="Asia/Yekaterinburg"
-start=$(date +%s.%N)
-NAMEPBX=atsip-newpbx3
+start=$(date +%s)
+## Hostname
+NAMEPBX=atsip-pbx
 codename=noble
+## Веб-каталог
 WEBROOT="/var/www/html/pbx"
 WORK_DIR=$(pwd)
 IP_ADDR=$(hostname -I)
@@ -91,18 +97,52 @@ hostnamectl set-hostname ${NAMEPBX}
 msg "Задайте пароль для CDR Viewer MOD пользователю admin"
 read CDRV_PASS
 
+function apply_patches() {
+    msg "Патчим taskproccessor на размер очереди до предупреждения"
+    patch ./include/asterisk/taskprocessor.h < ${WORK_DIR}/patches/taskprocessor
+}
+
 function preinstall() {
     msg "Обновляем систему"
     apt-get update && apt-get upgrade -y
     msg "Устанавливаем сетевые утилиты:"
     apt install iputils-ping nmap net-tools tcpdump sngrep rinetd dnsutils -y
     msg "Дополнительные утилиты:"
-    apt install sox mpg123 cron mc openvpn fail2ban tftpd-hpa git htop iptables ntp logrotate bc -y
+    apt install sox mpg123 cron mc openvpn fail2ban tftpd-hpa git htop iptables ntp logrotate bc at ncdu -y
 }
 
-function inst_apache_php(){
+function install_libpri() {
+    msg "Устанавливаем LibPRI из пакетов - из исходников не собирается"
+    apt install libpri-dev libpri1.4 -y
+    #cd /usr/src/
+    #wget https://downloads.asterisk.org/pub/telephony/libpri/releases/libpri-1.6.1.tar.gz
+    #tar -xzf libpri-1.6.1.tar.gz
+    #cd libpri-1.6.1
+    #make
+}
+
+function install_dahdi() {
+    msg "Устанавливаем DAHDI для Parabel"
+    # Рекомендуется установить dahdi, dahdi-linux, для дистра
+    dahdi_ver="3.4.0"
+    apt install gcc make autoconf automake libtool shtool pkg-config libtonezone-dev -y
+    msg "По рекомендации устанавливаем пакеты из дистрибутива"
+    apt install dahdi dahdi-linux -y
+    msg "А теперь собираем из исходников от Parabel"
+    cd /usr/src/
+    wget https://parabel.ru/d/software/dahdi/dahdi_3.4.0+3.4.0-parabel_3.4.0.1.tar.bz2
+    tar -xjf dahdi_3.4.0+3.4.0-parabel_3.4.0.1.tar.bz2
+    cd dahdi_3.4.0+3.4.0-parabel_3.4.0.1
+    ./build.sh
+    ./build.tools.sh
+    ./install.sh
+    #./install.tools.sh
+
+}
+
+function install_apache_php(){
     msg "Устанавливаем PHP7.4 + Apache2"
-    sudo apt install software-properties-common
+    sudo apt install software-properties-common -y
     sudo add-apt-repository ppa:ondrej/php -y
     sudo apt install php7.4 php7.4-{cli,common,curl,zip,gd,mysql,xml,mbstring,json,intl} -y
     msg "Поправка конфига Апача"
@@ -122,12 +162,13 @@ function install_asterisk(){
     useradd -m asterisk
     cd /usr/src/
     # Скачивание файла только при его отсутствии
-    if [ ! -e /usr/src/asterisk-18-current.tar.gz ]
+    if [ ! -e /usr/src/asterisk-${ASTVERSION}-current.tar.gz ]
     then
         wget http://downloads.asterisk.org/pub/telephony/asterisk/asterisk-${ASTVERSION}-current.tar.gz
         tar xzf asterisk*
     fi
-    cd asterisk-18.*
+    cd asterisk-${ASTVERSION}.*
+    apply_patches
     msg "Установка зависимостей Asterisk"
     contrib/scripts/install_prereq install
     ./configure --with-pjproject-bundled --with-jansson-bundled
@@ -173,20 +214,20 @@ autosystemname = yes
 EOF
 }
 
-function inst_mariadb_con(){
+function install_mariadb_con(){
+    msg "Install MariaDB Server and Client"
+    apt install mariadb-server mariadb-client galera-4 -y
+    msg "Install UnixODBC"
+    apt install unixodbc-dev unixodbc -y
     msg "Install MariaDB Connector"
     cd /usr/src/
     # Скачивание файла только при его отсутствии
     if [ ! -e /usr/src/mariadb-connector-odbc-*.deb ]
     then
-        wget https://dlm.mariadb.com/3680402/Connectors/odbc/connector-odbc-3.1.20/mariadb-connector-odbc-3.1.20-ubuntu-jammy-amd64.deb
+        wget https://dlm.mariadb.com/3978209/Connectors/odbc/connector-odbc-3.2.4/mariadb-connector-odbc_3.2.4+ubu2404_amd64.deb
         dpkg -i mariadb-connector-odbc*
     fi
     sleep 10
-    msg "Install MariaDB Server and Client"
-    apt install mariadb-server mariadb-client galera-4 -y
-    msg "Install UnixODBC"
-    apt install unixodbc-dev unixodbc -y
 
 msg "Поправка конфигов ODBC"
 cat << EOF >> /etc/odbcinst.ini
@@ -222,15 +263,15 @@ sql_mode=NO_ENGINE_SUBSTITUTION
 EOF
 }
 
-function inst_nodejs(){
+function install_nodejs(){
     msg "Установка nodeJS"
-
     curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash - 
     apt-get install -y nodejs
+    msg "Установка npm"
     apt install npm -y
 }
 
-function inst_freepbx(){
+function install_freepbx(){
     msg " > Установка FreePBX" "----------------------"
     cd /usr/src
     # Скачивание файла только при его отсутствии
@@ -256,6 +297,22 @@ function inst_freepbx(){
     unzip -q asterisk-sounds-additional.zip
     cp -r asterisk-sounds-additional-master/* /var/lib/asterisk/sounds/ru/
     chown -R asterisk: /var/lib/asterisk/sounds
+
+msg "Создаем юнит systemd и добавляем FreePBX в автозагрузку"
+cat << EOF >> /etc/systemd/system/freepbx.service
+[Unit]
+Description=FreePBX VoIP Server
+After=mariadb.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/fwconsole start
+ExecStop=/usr/sbin/fwconsole stop -q
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable --now freepbx
 }
 
 function install_cdr(){
@@ -363,29 +420,35 @@ function customize(){
     # Задание тоновых сигналов и установка имени атски
     mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = 'ru' WHERE keyword = 'TONEZONE';"
     mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = ${NAMEPBX} WHERE keyword = 'FREEPBX_SYSTEM_IDENT';"
-    # подчищаем от аудиофайлов для кодека g722
-    find /var/lib/asterisk/sounds/ -type f -name "*.g722" -delete
     # часовой пояс
     timedatectl set-timezone ${timezone}
     mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = ${timezone} WHERE keyword = 'PHPTIMEZONE';"
     # Заглушка для корня веба
-    mv ${WORK_DIR}/var/www/html/index.html ${WEBROOT}
+    mv ${WORK_DIR}/var/www/html/index.html /var/www/html
+    mv -f ${WORK_DIR}/var/www/html/index-atsip.html ${WEBROOT}/index.html
     mv ${WORK_DIR}/var/www/html/mainstyle.css ${WEBROOT}
     mv ${WORK_DIR}/var/www/html/admin/images/atsip.ru.png ${WEBROOT}/admin/images/
     # Актуализация локализации веб-интерфейса
     mv ${WORK_DIR}/var/www/html/freepbx-framework-ru.po ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.po
     mv ${WORK_DIR}/var/www/html/freepbx-framework-ru.mo ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.mo
+    msg "Исправляем проблемы с русской локалью"
+    apt install language-pack-ru language-pack-ru-base locales -y
+    localectl set-locale LANG=ru_RU.utf8
+
     # Добавляем индексацию таблице cdr
     mysql -u root -D asterisk -e "ALTER TABLE asteriskcdrdb.cdr ADD id BIGINT NOT NULL AUTO_INCREMENT FIRST, ADD PRIMARY KEY (id);"
 }
 
 # Вызов функций
+add_pubkey
 preinstall
+install_dahdi
+install_libpri
 install_asterisk
-inst_apache_php
-inst_mariadb_con
-inst_nodejs
-inst_freepbx
+install_apache_php
+install_mariadb_con
+install_nodejs
+install_freepbx
 install_cdr
 set_firewall
 set_rinetd
@@ -397,7 +460,7 @@ chown -R asterisk: ${WEBROOT}
 chown -R asterisk: /etc/asterisk
 fwconsole restart
 systemctl daemon-reload
-#systemctl enable freepbx
+systemctl enable freepbx
 
 echo -e "\033[34m############################################################
 #\033[33m                                                          \033[34m#
@@ -416,7 +479,8 @@ echo "        \__,_|\__|___/_| .__(_)_|   \__,_|"
 echo "                       |_|                "
 }
 
-# Время выполнения скрипта
-duration=$(echo "$(date +%s.%N) - $start" | bc)
-execution_time=`printf "%.2f seconds" $duration`
-msg "Время полного выполнения скрипта: $execution_time" "Процесс установки FreePBX 16 успешно завершен!"
+end=$(date +%s)
+duration=$(echo "$end - $start" | bc)
+let "minutes = $duration / 60"
+msg "Время полного выполнения скрипта: $minutes min. $(($duration % 60)) sec." "Процесс установки FreePBX 16 успешно завершен!"
+msg "Версия скрипта ${SCRIPTVER}"
