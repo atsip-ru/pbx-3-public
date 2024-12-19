@@ -440,7 +440,6 @@ function customize(){
 }
 
 # Вызов функций
-add_pubkey
 preinstall
 install_dahdi
 install_libpri
