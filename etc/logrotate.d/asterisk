@@ -24,18 +24,6 @@
     copytruncate
 }
 
-/var/log/asterisk/cel_prostiezvonki_*.log {
-    daily
-    ifempty
-    rotate 30
-    missingok
-    su asterisk asterisk
-    compress
-    dateext
-    copytruncate
-    notifempty
-}
-
 /var/log/asterisk/* {
     maxage 30
 }
