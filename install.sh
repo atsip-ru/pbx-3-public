@@ -97,11 +97,6 @@ hostnamectl set-hostname ${NAMEPBX}
 msg "Задайте пароль для CDR Viewer MOD пользователю admin"
 read CDRV_PASS
 
-function apply_patches() {
-    msg "Патчим taskproccessor на размер очереди до предупреждения"
-    patch ./include/asterisk/taskprocessor.h < ${WORK_DIR}/patches/taskprocessor
-}
-
 function preinstall() {
     msg "Обновляем систему"
     apt-get update && apt-get upgrade -y
@@ -168,7 +163,6 @@ function install_asterisk(){
         tar xzf asterisk*
     fi
     cd asterisk-${ASTVERSION}.*
-    apply_patches
     msg "Установка зависимостей Asterisk"
     contrib/scripts/install_prereq install
     ./configure --with-pjproject-bundled --with-jansson-bundled
