@@ -31,7 +31,7 @@ echo -e '\033[34m#################################################
 #################################################\033[0m'
 
 # set -e
-SCRIPTVER="0.5.6"
+SCRIPTVER="0.5.7"
 # Changelog:
 # Поправки ошибок + фаерволл + изменен webroot
 # добавил неинтерактивный режим
@@ -41,7 +41,7 @@ SCRIPTVER="0.5.6"
 # Вынос вывода подсказок в отдельную функцию
 # Мелкие доработки в кастомизации - правка через БД
 export DEBIAN_FRONTEND=noninteractive
-ASTVERSION=18
+ASTVERSION=20
 PHPVERSION="7.4"
 LOG_FOLDER="/var/log"
 LOG_FILE="${LOG_FOLDER}/freepbx16-install-$(date '+%Y.%m.%d-%H.%M.%S').log"
@@ -258,41 +258,42 @@ function inst_freepbx(){
     chown -R asterisk: /var/lib/asterisk/sounds
 }
 
-function inst_cdr(){
+function install_cdr(){
+
     msg " > Установка CDR Viewer MOD" "-----------------------------"
     cd /usr/src/
     git clone https://github.com/atsip-ru/Asterisk-CDR-Viewer-Mod.git
     mv Asterisk-CDR-Viewer-Mod/ ${WEBROOT}/cdr
     cp ${WEBROOT}/cdr/inc/config/config.php.sample ${WEBROOT}/cdr/inc/config/config.php
 
-    # db_user -> $amp_conf['AMPDBUSER'] = 'freepbxuser';
-
-    DBUSER=`cat /etc/freepbx.conf | sed 's/ //g' | grep AMPDBUSER | tail -n 1 | cut -d= -f2 `
+    DBUSER=$(cat /etc/freepbx.conf | sed 's/ //g' | grep AMPDBUSER | tail -n 1 | cut -d= -f2)
     DBUSER=${DBUSER:1}
     DBUSER=${DBUSER%??}
     sed -i "s/db_user/${DBUSER}/"  ${WEBROOT}/cdr/inc/config/config.php
-
-    # db_name -> asteriskcdrdb
     sed -i "s/db_name/asteriskcdrdb/"  ${WEBROOT}/cdr/inc/config/config.php
-    # db_password -> $amp_conf['AMPDBPASS'] = 'c92b9be40d29bbef491ee08057fe889a';
 
-    DBPASS=`cat /etc/freepbx.conf | sed 's/ //g' | grep AMPDBPASS | tail -n 1 | cut -d= -f2- `
+    DBPASS=$(cat /etc/freepbx.conf | sed 's/ //g' | grep AMPDBPASS | tail -n 1 | cut -d= -f2)
     DBPASS=${DBPASS:1}
     DBPASS=${DBPASS%??}
     sed -i "s/db_password/${DBPASS}/"  ${WEBROOT}/cdr/inc/config/config.php
+    sed -i "96 s/^/\t\t\t'admin',/" ${WEBROOT}/cdr/inc/config/config.php
 
     msg "Задаем пароль для CDR Viewer MOD пользователю admin"
-    htpasswd -b ${WEBROOT}/cdr/.htpasswd admin $CDRV_PASS
+    htpasswd -bc ${WEBROOT}/cdr/.htpasswd admin $CDRV_PASS
     msg "Для включения парольного доступа - добавьте пользователя (-ей) в config.php \nсогласно инструкции https://github.com/atsip-ru/Asterisk-CDR-Viewer-Mod/blob/master/docs/Readme.md#добавить-пользователя"
 
 cat << EOF >> /etc/apache2/apache2.conf
-<Location "${WEBROOT}/cdr">
-  	AuthName "CDR Viewer Mod"
-	AuthType Basic
-	AuthUserFile ${WEBROOT}/cdr/.htpasswd
-	require valid-user
-</Location>
+<Directory "${WEBROOT}/cdr">
+    Options Indexes FollowSymLinks
+    AllowOverride None
+    AuthName "CDR Viewer Mod"
+    AuthType Basic
+    AuthUserFile ${WEBROOT}/cdr/.htpasswd
+    Require valid-user
+</Directory>
 EOF
+
+    systemctl restart apache2
 }
 
 function set_firewall(){
@@ -385,7 +386,7 @@ inst_apache_php
 inst_mariadb_con
 inst_nodejs
 inst_freepbx
-inst_cdr
+install_cdr
 set_firewall
 set_rinetd
 set_tftp
