@@ -27,9 +27,9 @@ firewall_start() {
     iptables -A INPUT -p icmp --icmp-type destination-unreachable -j ACCEPT
     iptables -A INPUT -p icmp --icmp-type time-exceeded -j ACCEPT
     iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
-    iptables -A INPUT -p udp --source-port 53 -s 8.8.8.8 -j ACCEPT
-    iptables -A INPUT -s 8.8.8.8/32  -p tcp -m tcp --dport 53 -j ACCEPT
-    iptables -A INPUT -s 8.8.4.4/32  -p tcp -m tcp --dport 53 -j ACCEPT
+    iptables -A INPUT -p udp --source-port 53 -s 77.88.8.8 -j ACCEPT
+    iptables -A INPUT -s 77.88.8.8/32  -p tcp -m tcp --dport 53 -j ACCEPT
+    iptables -A INPUT -s 77.88.8.1/32  -p tcp -m tcp --dport 53 -j ACCEPT
     iptables -A INPUT -p udp --dport 636:636 -j ACCEPT
     iptables -A INPUT -p tcp --dport 636:636 -j ACCEPT
     iptables -A INPUT -p udp -m udp --dport 636 -j ACCEPT
