@@ -30,7 +30,7 @@ echo -e '\033[34m#################################################
 #################################################\033[0m'
 
 # set -e
-SCRIPTVER="0.6.11"
+SCRIPTVER="0.6.12"
 # Changelog:
 # Найдена ошибка недоступности chan_dahdi в menuselect
 # Исправлены ошибки с CDR
@@ -258,11 +258,17 @@ EOF
 }
 
 function install_nodejs(){
-    msg "Установка nodeJS"
-    curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash - 
-    apt-get install -y nodejs
-    msg "Установка npm"
-    apt install npm -y
+    msg "Установка nodeJS и npm"
+    node_version="20.19.2"
+    wget https://nodejs.org/dist/latest-v20.x/node-v${node_version}-linux-x64.tar.gz
+    sudo tar -C /usr/local --strip-components 1 -xf sudo tar -C /usr/local --strip-components 1 -xf node-v${node_version}-linux-x64.tar.gz
+    msg "И проверим версии"
+    node -v && npm -v
+    #curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+    #sudo -E bash nodesource_setup.sh
+    #apt-get install -y nodejs
+    #msg "Установка npm"
+    #apt install npm -y
 }
 
 function install_freepbx(){
@@ -274,11 +280,18 @@ function install_freepbx(){
         wget http://mirror.freepbx.org/modules/packages/freepbx/freepbx-16.0-latest.tgz
         tar xfz freepbx-16.0-latest.tgz
     fi
+
+    if [ -f ${WEBROOT} ]; then
+        echo "This is file!"
+        rm ${WEBROOT}
+    fi
+
     touch /etc/asterisk/{modules,cdr}.conf 
     cd freepbx 
     ./start_asterisk start 
     ./install -n --webroot=${WEBROOT}
     chown -R asterisk: ${WEBROOT}
+    fwconsole setting MODULE_REPO https://mirror2.freepbx.org
     fwconsole ma install pm2
     msg "Установка модулей FreePBX"
     fwconsole ma downloadinstall userman bulkhandler blacklist calendar cel cdr
