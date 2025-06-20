@@ -30,7 +30,7 @@ echo -e '\033[34m#################################################
 #################################################\033[0m'
 
 # set -e
-SCRIPTVER="0.6.12"
+SCRIPTVER="0.6.14"
 # Changelog:
 # Найдена ошибка недоступности chan_dahdi в menuselect
 # Исправлены ошибки с CDR
@@ -63,7 +63,7 @@ codename=noble
 ## Веб-каталог
 WEBROOT="/var/www/html/pbx"
 WORK_DIR=$(pwd)
-IP_ADDR=$(hostname -I)
+IP_ADDR="$(echo $(hostname -I) | sed 's/[[:blank:]]\{1,\}$//')"
 
 function msg() {
     color="\033[0;33m"
@@ -258,10 +258,10 @@ EOF
 }
 
 function install_nodejs(){
-    msg "Установка nodeJS и npm"
+    msg "Установка nodeJS и NPM"
     node_version="20.19.2"
-    wget https://nodejs.org/dist/latest-v20.x/node-v${node_version}-linux-x64.tar.gz
-    sudo tar -C /usr/local --strip-components 1 -xf sudo tar -C /usr/local --strip-components 1 -xf node-v${node_version}-linux-x64.tar.gz
+    wget https://nodejs.org/dist/v${node_version}/node-v${node_version}-linux-x64.tar.gz
+    tar -C /usr/local --strip-components 1 -xf node-v${node_version}-linux-x64.tar.gz
     msg "И проверим версии"
     node -v && npm -v
     #curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
