@@ -1,6 +1,7 @@
 #!/bin/bash
+
 ##############################################################################
-# * Copyright 2024 by Atsip.ru (Intelcom LLC)                                #
+# * Copyright 2025 by Atsip.ru (Intelcom LLC)                                #
 # This program is free software; you can redistribute it and/or              #
 # modify it under the terms of the GNU General Public License                #
 # as published by the Free Software Foundation; either version 3.0           #
@@ -22,22 +23,29 @@
 #                                FreePBX 16                                  #
 ##############################################################################
 
-echo -e '\033[34m#################################################
-#\033[33m                                               \033[34m#
-#\033[33m    Установка Asterisk & FreePBX на Ubuntu     \033[34m#
-#\033[33m                                               \033[34m#
-#\033[33m      Запускайте скрипт только от root!!       \033[34m#
-#################################################\033[0m'
+SCRIPTVER="0.6.25"
 
-# set -e
-SCRIPTVER="0.6.14"
+echo -e '\033[34m##################################################
+#\033[33m                                                \033[34m#
+#\033[33m    Установка Asterisk & FreePBX на Ubuntu      \033[34m#
+#\033[33m                                                \033[34m#
+#\033[33m      Запускайте скрипт только от root!!        \033[34m#
+#\033[33m                                                \033[34m#
+#\033[33m      Устанавливается без DAHDI и LibPRI        \033[34m#
+#\033[33m Для их установки раскомментируй функции в      \033[34m#
+#\033[33m install_dahdi и install_libpri в конце скрипта \033[34m#
+##################################################\033[0m'
+
+# 2025-08-01 Добавил CLI Aliases
+# 2025-06-20 Исправлена установка nodeJS и NPM, поправка для веб-каталога+более свежая версия коннектора
+# Добавил поддержку синтаксиса Asterisk для nano и mcedit
+# добавлена установка Zabbix agent 2
 # Changelog:
 # Найдена ошибка недоступности chan_dahdi в menuselect
 # Исправлены ошибки с CDR
 # Поправки ошибок + фаерволл + изменен webroot
 # добавил неинтерактивный режим
 # автостоп rinetd
-# CDR Viewer MOD + ошибки
 # Разбиение на функции
 # Вынос вывода подсказок в отдельную функцию
 # Мелкие доработки в кастомизации - правка через БД
@@ -52,17 +60,16 @@ touch ${LOG_FILE}
 log=$LOG_FILE
 exec 2>>${LOG_FILE}
 CDRV_PASS="GhjcvjnhPdjyrjd"
-# DISTRIBUTION="$(lsb_release -is)"
 # Переменные
 ## Часовой пояс
 timezone="Asia/Yekaterinburg"
 start=$(date +%s)
 ## Hostname
-NAMEPBX=atsip-pbx
-codename=noble
+NAMEPBX=atsip-newpbx3
 ## Веб-каталог
-WEBROOT="/var/www/html/pbx"
+WEBROOT="/var/www/html/pbx/"
 WORK_DIR=$(pwd)
+##IP_ADDR=$(hostname -I)
 IP_ADDR="$(echo $(hostname -I) | sed 's/[[:blank:]]\{1,\}$//')"
 
 function msg() {
@@ -79,8 +86,10 @@ log() {
     echo "$(date +"%Y-%m-%d %T") - $*" >> "$LOG_FILE"
 }
 
-msg "Желаешь сам поправить MenuSelect? [Y/n]"
-read MENUSELECT_EDIT
+function edit_menuselect() {
+    msg "Желаешь сам поправить MenuSelect? [Y/n]"
+    read MENUSELECT_EDIT
+}
 
 # Check for root privileges
 if [[ $EUID -ne 0 ]]; then
@@ -88,14 +97,18 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-msg "Введи желаемый Hostname"
-read NAMEPBX
+function edit_hostname() {
+    msg "Введи желаемый Hostname"
+    read NAMEPBX
 
-msg "Меняем хостнейм на ${NAMEPBX}"
-hostnamectl set-hostname ${NAMEPBX}
+    msg "Меняем хостнейм на ${NAMEPBX}"
+    hostnamectl set-hostname ${NAMEPBX}
+}
 
-msg "Задайте пароль для CDR Viewer MOD пользователю admin"
-read CDRV_PASS
+function edit_pass_cdr() {
+    msg "Задайте пароль для CDR Viewer MOD пользователю admin"
+    read CDRV_PASS
+}
 
 function preinstall() {
     msg "Обновляем систему"
@@ -103,7 +116,9 @@ function preinstall() {
     msg "Устанавливаем сетевые утилиты:"
     apt install iputils-ping nmap net-tools tcpdump sngrep rinetd dnsutils -y
     msg "Дополнительные утилиты:"
-    apt install sox mpg123 cron mc openvpn fail2ban tftpd-hpa git htop iptables ntp logrotate bc at ncdu -y
+    apt install sox mpg123 cron mc openvpn fail2ban tftpd-hpa git htop iptables ntp logrotate bc at ncdu nano -y
+    msg "Необязательные утилиты:"
+    apt install etckeeper -y
 }
 
 function install_libpri() {
@@ -132,7 +147,6 @@ function install_dahdi() {
     ./build.tools.sh
     ./install.sh
     #./install.tools.sh
-
 }
 
 function install_apache_php(){
@@ -218,7 +232,9 @@ function install_mariadb_con(){
     # Скачивание файла только при его отсутствии
     if [ ! -e /usr/src/mariadb-connector-odbc-*.deb ]
     then
-        wget https://dlm.mariadb.com/3978209/Connectors/odbc/connector-odbc-3.2.4/mariadb-connector-odbc_3.2.4+ubu2404_amd64.deb
+        # https://mariadb.com/downloads/connectors/connectors-data-access/odbc-connector
+        # wget https://dlm.mariadb.com/4189196/Connectors/odbc/connector-odbc-3.2.5/mariadb-connector-odbc_3.2.5-1+maria~noble_amd64.deb
+        wget https://dlm.mariadb.com/4275284/Connectors/odbc/connector-odbc-3.2.6/mariadb-connector-odbc_3.2.6-1+maria~noble_amd64.deb
         dpkg -i mariadb-connector-odbc*
     fi
     sleep 10
@@ -259,16 +275,16 @@ EOF
 
 function install_nodejs(){
     msg "Установка nodeJS и NPM"
-    node_version="20.19.2"
-    wget https://nodejs.org/dist/v${node_version}/node-v${node_version}-linux-x64.tar.gz
-    tar -C /usr/local --strip-components 1 -xf node-v${node_version}-linux-x64.tar.gz
+    #node_version="20.19.2"
+    #wget https://nodejs.org/dist/v${node_version}/node-v${node_version}-linux-x64.tar.gz
+    #tar -C /usr/local --strip-components 1 -xf node-v${node_version}-linux-x64.tar.gz
+    
+    curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash - 
+    apt-get install nodejs -y
+    msg "Установка npm"
+    apt-get install npm -y
     msg "И проверим версии"
     node -v && npm -v
-    #curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-    #sudo -E bash nodesource_setup.sh
-    #apt-get install -y nodejs
-    #msg "Установка npm"
-    #apt install npm -y
 }
 
 function install_freepbx(){
@@ -287,6 +303,7 @@ function install_freepbx(){
     fi
 
     touch /etc/asterisk/{modules,cdr}.conf 
+    chown -R asterisk: /etc/asterisk
     cd freepbx 
     ./start_asterisk start 
     ./install -n --webroot=${WEBROOT}
@@ -305,7 +322,7 @@ function install_freepbx(){
     cp -r asterisk-sounds-additional-master/* /var/lib/asterisk/sounds/ru/
     chown -R asterisk: /var/lib/asterisk/sounds
 
-msg "Создаем юнит systemd и добавляем FreePBX в автозагрузку"
+    msg "Создаем юнит systemd и добавляем FreePBX в автозагрузку"
 cat << EOF >> /etc/systemd/system/freepbx.service
 [Unit]
 Description=FreePBX VoIP Server
@@ -319,7 +336,8 @@ ExecStop=/usr/sbin/fwconsole stop -q
 WantedBy=multi-user.target
 EOF
 
-systemctl enable --now freepbx
+    systemctl enable --now freepbx
+    fwconsole restart
 }
 
 function install_cdr(){
@@ -343,7 +361,7 @@ function install_cdr(){
     sed -i "96 s/^/\t\t\t'admin',/" ${WEBROOT}/cdr/inc/config/config.php
 
     msg "Задаем пароль для CDR Viewer MOD пользователю admin"
-    htpasswd -bc ${WEBROOT}/cdr/.htpasswd admin $CDRV_PASS
+    htpasswd -bc ${WEBROOT}/cdr/.htpasswd admin ${CDRV_PASS}
     msg "Для включения парольного доступа - добавьте пользователя (-ей) в config.php \nсогласно инструкции https://github.com/atsip-ru/Asterisk-CDR-Viewer-Mod/blob/master/docs/Readme.md#добавить-пользователя"
 
 cat << EOF >> /etc/apache2/apache2.conf
@@ -357,6 +375,7 @@ cat << EOF >> /etc/apache2/apache2.conf
 </Directory>
 EOF
 
+    chown -R asterisk: ${WEBROOT}
     systemctl restart apache2
 }
 
@@ -411,6 +430,9 @@ function inst_scripts(){
     msg "Добавляем скрипты автоудаления старых записей и голосовой почты + настройки logrotate"
     mv ${WORK_DIR}/etc/cron.daily/rmwav.sh /etc/cron.daily/
     mv ${WORK_DIR}/etc/cron.daily/vm-auto-delete.sh /etc/cron.daily/
+    mv ${WORK_DIR}/etc/cron.daily/free_space.sh /etc/cron.daily/
+    mv ${WORK_DIR}/etc/cron.daily/backup.sh /etc/cron.monthly/
+    chmod +x /etc/cron.monthly/backup.sh
     mv ${WORK_DIR}/etc/logrotate.d/asterisk /etc/logrotate.d/
     systemctl daemon-reload
     msg "Устранение ошибки fail2ban" "Потребуется ввод пароля"
@@ -420,36 +442,75 @@ function inst_scripts(){
 }
 
 function customize(){
+    # Преднастройка Followme
+    fwconsole setting FOLLOWME_RG_STRATEGY ringallv2
+    fwconsole setting FOLLOWME_PRERING 5
+    fwconsole setting FOLLOWME_TIME 60
     # Уменьшаем генерирование пароля до 8 символов
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = '8' WHERE keyword = 'SIPSECRETSIZE';"
+    fwconsole setting SIPSECRETSIZE 8
     # Отображение хостнейма в строке браузера
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = '1' WHERE keyword = 'SERVERINTITLE';"
-    # Задание тоновых сигналов и установка имени атски
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = 'ru' WHERE keyword = 'TONEZONE';"
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = ${NAMEPBX} WHERE keyword = 'FREEPBX_SYSTEM_IDENT';"
-    # часовой пояс
+    fwconsole setting SERVERINTITLE 1
+    fwconsole setting FREEPBX_SYSTEM_IDENT ${NAMEPBX}
+    # Время вызова
+    fwconsole setting RINGTIMER 60
+    # Включение CDR Logging
+    fwconsole setting CDR_BATCH_ENABLE 1
+    # Задание тоновых сигналов
+    fwconsole setting TONEZONE ru
+    # подчищаем от аудиофайлов для кодека g722
+    find /var/lib/asterisk/sounds/ -type f -name "*.g722" -delete
+    msg "часовой пояс"
     timedatectl set-timezone ${timezone}
-    mysql -u root -D asterisk -e "UPDATE freepbx_settings SET value = ${timezone} WHERE keyword = 'PHPTIMEZONE';"
+    fwconsole setting PHPTIMEZONE ${timezone}
+    # Отключаем проверку цифровой подписи
+    fwconsole setting SIGNATURECHECK 0
     # Заглушка для корня веба
     mv ${WORK_DIR}/var/www/html/index.html /var/www/html
     mv -f ${WORK_DIR}/var/www/html/index-atsip.html ${WEBROOT}/index.html
     mv ${WORK_DIR}/var/www/html/mainstyle.css ${WEBROOT}
-    mv ${WORK_DIR}/var/www/html/admin/images/atsip.ru.png ${WEBROOT}/admin/images/
-    # Актуализация локализации веб-интерфейса
-    mv ${WORK_DIR}/var/www/html/freepbx-framework-ru.po ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.po
-    mv ${WORK_DIR}/var/www/html/freepbx-framework-ru.mo ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.mo
+    mv ${WORK_DIR}/var/www/html/admin/images/atsip.* ${WEBROOT}/admin/images/
+    mv -f ${WORK_DIR}/var/www/html/freepbx-framework-ru.po ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.po
+    mv -f ${WORK_DIR}/var/www/html/freepbx-framework-ru.mo ${WEBROOT}/admin/i18n/ru_RU/LC_MESSAGES/amp.mo
+    
+    msg "Добавляю подсветку синтаксиса Asterisk для mcedit и nano"
+    mv ${WORK_DIR}/usr/share/mc/syntax/asterisk.syntax /usr/share/mc/syntax/asterisk.syntax
+    sed -i "25 s/^/file extensions.\*\\.conf$ Asterisk\sdialplan\ninclude asterisk.syntax\n\n/" /usr/share/mc/syntax/Syntax
+    mv ${WORK_DIR}/usr/share/nano/asterisk.nanorc /usr/share/nano/asterisk.nanorc
+    
     msg "Исправляем проблемы с русской локалью"
     apt install language-pack-ru language-pack-ru-base locales -y
     localectl set-locale LANG=ru_RU.utf8
+    msg "Добавляем индексацию таблице cdr"
+    mysql -u root -D asteriskcdrdb -e "ALTER TABLE asteriskcdrdb.cdr ADD id BIGINT NOT NULL AUTO_INCREMENT FIRST, ADD PRIMARY KEY (id);"
+    chown -R asterisk: ${WEBROOT}
+    fwconsole reload
+    msg "Очищаем кэш установленных пакетов"
+    apt-get clean
+    
+    msg "Добавляю cli_aliases"
+    cd /usr/src/asterisk-${ASTVERSION}.*
+    cp ./configs/samples/cli_aliases.conf.sample /etc/asterisk/cli_aliases.conf
+    chown asterisk: /etc/asterisk/cli_aliases.conf
+    asterisk -rx 'module load res_clialiases.so'
+}
 
-    # Добавляем индексацию таблице cdr
-    mysql -u root -D asterisk -e "ALTER TABLE asteriskcdrdb.cdr ADD id BIGINT NOT NULL AUTO_INCREMENT FIRST, ADD PRIMARY KEY (id);"
+function install_zabbix(){
+    cd /usr/src/
+    wget https://repo.zabbix.com/zabbix/7.2/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.2+ubuntu24.04_all.deb
+    dpkg -i zabbix-release_latest_7.2+ubuntu24.04_all.deb
+    apt update
+    apt install zabbix-agent2 -y
+    systemctl restart zabbix-agent2 && systemctl enable zabbix-agent2 
 }
 
 # Вызов функций
+edit_menuselect
+edit_hostname
+edit_pass_cdr
 preinstall
-install_dahdi
-install_libpri
+# Без DAHDI и LibPRI
+#install_dahdi
+#install_libpri
 install_asterisk
 install_apache_php
 install_mariadb_con
@@ -460,6 +521,7 @@ set_firewall
 set_rinetd
 set_tftp
 inst_scripts
+#install_zabbix
 customize
 
 chown -R asterisk: ${WEBROOT}
@@ -467,14 +529,15 @@ chown -R asterisk: /etc/asterisk
 fwconsole restart
 systemctl daemon-reload
 systemctl enable freepbx
+ast_ver=$(asterisk -rx "core show version" | awk '{print $2}')
 
-echo -e "\033[34m############################################################
-#\033[33m                                                          \033[34m#
-#\033[33m Поздравляем с успешной установкой Asterisk и FreePBX     \033[34m#
-#\033[33m Не забудь сменить пароль root для mariadb                \033[34m#
-#\033[33m Донастрой АТС по адресу http://${IP_ADDR}/pbx/admin/ \033[34m#
-#\033[33m                                                          \033[34m#
-############################################################\033[0m"
+echo -e "\033[34m###################################################################
+#\033[33m                                                                 \033[34m#
+#\033[33m Поздравляем с успешной установкой Asterisk ${ast_ver} и FreePBX ${FPBXVERSION} \033[34m#
+#\033[33m Не забудь сменить пароль root для mariadb                       \033[34m#
+#\033[33m Донастрой АТС по адресу http://${IP_ADDR}/pbx/admin/         \033[34m#
+#\033[33m                                                                 \033[34m#
+###################################################################\033[0m"
 
 {
 echo "              _       _                   "

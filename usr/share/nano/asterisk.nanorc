@@ -1,0 +1,96 @@
+## Asterisk syntax highlighting
+
+syntax "conf" "/.*/asterisk/.*.conf$"
+
+icolor brightwhite "^[[:space:]]*((un)?set|include|syntax|i?color).*$"
+
+## Дополнительная подсветка некоторых знаков
+color  green "(:|/|(|)|]|[|`|\|$|<|>|!|=|&||)"
+color   red   "({|})"
+#color green "(.+)"
+
+## IP адреса
+icolor brightgreen "<((([0-9]([0-9]([0-9])))|([0-9]([0-9]))|([0-9]))+.(([0-9]([0-9]([0-9])))|([0-9]([0-9]))|([0-9]))+.(([0-9]([0-9]([0-9])))|([0-9]([0-9]))|([0-9]))+.(([0-9]([0-9]([0-9])))|([0-9]([0-9]))|([0-9])))>"
+
+## Порты
+icolor  green      "^(s)*(port|bindport)*(s)*=(s)*([0-9]*(.)?)"
+icolor green   "(10000|20000|36600|39999|39989)"
+
+## Комменты для exten & same
+icolor brightblue  "^(s)*same*(s)*(=>|=)(s)*([0-9]|n)([A-Za-z0-9_-]+)"
+icolor brightblue  "^(s)*exten(s)*(=>|=)(s)*((s|t|a|i|o|fax)|([0-9A-Za-z_.!*?-]*(.)?)|[0-9*#]+|_([XZN0-9*#]*([[XZN0-9*#]*])*[XZN0-9*#]*)*(.)?),([0-9]|n)([A-Za-z0-9_-]+)"
+
+## Приоритеты
+icolor magenta           "^(s)*exten*(s)*(=>|=)(s)*([0-9A-Za-z_.!*?-]*(.)?),(1|[02-9]|n|hint)"
+icolor magenta           "^(s)*same*(s)*(=>|=)(s)*(1|[02-9]|n|hint)"
+## Параметры SIP
+#icolor      brightred   "^(s)*([0-9A-Za-z_!@#%,:$*?-])*([=])"
+#icolor      brightred   "^(s)*([0-9A-Za-z_!@#%,:$*?-])*(s)*([=])"
+icolor  brightred       "^(s)*([0-9A-Za-z_!@#%,:$*?-])+*(s)*(=)"
+
+## Высветление запятых
+icolor white "^(s)*exten(s)*(=>|=)(s)*([0-9A-Za-z_!*?-]*(.)?),"
+
+## Extensions
+icolor green "^(s)*exten(s)*(=>|=)(s)*((s|t|a|i|o|fax)|[0-9A-Za-z_.!*?-]+|_([+XZN/0-9*#]*([.+])*([[+XZN/0-9*#]*])*[+XZN/0-9*#]*)*(.)?)"
+icolor green "^(s)*exten*(=>|=)(s)*((s|t|a|i|o|fax)|[0-9A-Za-z_.!*?-]+|_([+XZN/0-9*#]*([.+])*([[+XZN/0-9*#]*])*[+XZN/0-9*#]*)*(.)?)"
+
+## ‘exten’ и ‘same’
+color  red   "^(s)*exten(s)*=" "^(s)*exten(s)*=>"
+color  cyan  "^(s)*same(s)*=" "^(s)*same(s)*=>"
+
+## Включаемые в файл конфиги
+icolor green "^(s)*include*(s)*=(s)*<.+>"
+icolor  cyan "^(s)*include*(s)*(=>|=)(s)*([0-9A-Za-z_!*?-]*(.)?)"
+color   brightyellow    "#include.*"
+
+## ‘include’ в диалплане
+color  green "^(s)*include(s)*(=>|=)"
+
+## Условные выражения
+icolor cyan  "$[.+]"
+
+## Контексты
+icolor brightmagenta     "^[.+]"
+
+## Технологии
+icolor yellow      "(SIP/|PJSIP/|IAX2/|Zap/|Local/|DAHDI/)"
+
+## Комментированные строки для <NoOp>
+#icolor      cyan  ",<NoOp>.*"
+icolor cyan  "(==.+==)"
+
+## Переменные
+icolor red   "${?[0-9A-Za-z_!@#%,:$*?-]+([[A-Za-z0-9_${}()/!@%:,#*?]])?}?"
+
+## Приложения
+icolor yellow      ",<(A(DSIProg|gent(((Callback)?Login)|MonitorOutgoing)|GI|larmReceiver|MD|nswer|ppendCDRUserField|uthenticate))>"
+icolor yellow      ",<(B(ackground(Detect)?|usy))>"
+icolor yellow 	   ",<(C(han(geMonitor|IsAvail|nelRedirect|Spy)|on(gestion|t(inueWhile|rolPlayback))))>"
+icolor yellow      ",<(D(ateTime|Bdel(tree)?|eadAGI|i(al|ctate|rectory)|ISA|umpChan))>"
+icolor yellow      ",<(E(AGI|cho|ndWhile|x(ec(If|While)?)|itWhile|te(nSpy|rnalIVR)))>"
+icolor yellow      ",<(F(astAGI|estival|lash|orkCDR))>"
+icolor yellow      ",<(G(etPEID|o(sub(if)?|to(If(Time)?)?)))>"
+icolor yellow      ",<(Ha(ngup|s(New)?Voicemail))>"
+icolor yellow      ",<(I(AX2Provision|CES|mportVar))>"
+icolor yellow      ",<(Lo(g|okup(Blacklist|CIDName)))>"
+icolor yellow      ",<(M(a(cro((Ex(clusive|it))?|(If)?)|ilboxExists)|eetMe(Admin|Count)?|illiwatt|o(nitor|rseCode)|P3Player|usicOnHold))>"
+icolor yellow      ",<(N(BScat|o(CDR|Op)))>"
+icolor yellow      ",<(P(a(ge|rk(AndAnnounce|edCall)?|use(Monitor|QueueMember))|ickUp|lay(back|tones)|r(ivacyManager|ogress)))>"
+icolor yellow      ",<(Queue(Log)?)>"
+icolor yellow      ",<(R(andom|e(a((d(File)?)lTime(Update)?)|cord|moveQueueMember|setCDR|t(ryDial|urn))|inging))>"
+icolor yellow 	   ",<(S(ay(Alpha|Digits|Number|Phonetic|UnixTime)|e(nd(DTMF|Image|Text|URL)|t(AMAFlags|Caller(ID|Pres)|CDRUserField|GlobalVar|MusicOnHold|TransferCapability)?)|IP(AddHeader|DtmfMode)|LA(Station|Trunk)|oftHangup|t(a(ckPop|rtMusicOnHold)|op(MixMonitor|Monitor|PlayTones|MusicOnHold))|ystem))>"
+icolor yellow      ",<(Tr(ansfer|y(Exec|System)))>"
+icolor yellow      ",<(U(npause(Monitor|QueueMember)|serEvent))>"
+icolor yellow      ",<(V(erbose|MAuthenticate|oiceMail(Main)?))>"
+icolor yellow      ",<(W(ait(Exten|For(Ring|Silence)|MusicOnHold)?|hile))>"
+icolor yellow      ",<(Zap(ateller|Barge|RAS|Scan))>"
+
+## something else
+icolor brightgreen "^[0-9A-Z_]+()"
+
+## Фигурные скобки
+#color blue  "[{}]"
+
+## Комментированные строки
+color  brightblue  ";.*"
